@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Marine Tracker</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+:root{--navy:#020d1a;--deep:#041428;--cyan:#00d4ff;--green:#00ff9d;--amber:#ffaa00;--red:#ff4455;--purple:#a78bfa;--border:rgba(0,212,255,0.25)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--navy);font-family:'Share Tech Mono',monospace;color:var(--cyan);height:100dvh;overflow:hidden;display:flex;flex-direction:column}
+#hdr{background:#020d1a;border-bottom:1px solid var(--border);padding:5px 10px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;z-index:1000}
+#ttl{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;letter-spacing:2px;color:var(--cyan)}
+#sb{display:flex;gap:8px}
+.si{font-size:8px;display:flex;flex-direction:column;align-items:center}
+.sl{color:rgba(0,212,255,0.4);font-size:8px}
+.sv{color:var(--green);font-weight:bold;font-size:11px}
+#map{flex:1;position:relative}
+.leaflet-container{background:#041428}
+#gs{position:absolute;top:90px;left:8px;z-index:999;background:rgba(2,13,26,0.92);border:1px solid var(--border);padding:5px 9px;border-radius:4px;font-size:9px;line-height:1.8}
+#gd{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--amber);margin-right:5px;vertical-align:middle}
+#gd.ok{background:var(--green);animation:gp 2s infinite}
+#gd.err{background:var(--red)}
+@keyframes gp{0%,100%{opacity:1}50%{opacity:0.3}}
+#cw{position:absolute;top:8px;right:8px;z-index:999;display:flex;flex-direction:column;align-items:center;gap:2px}
+#cr{width:68px;height:68px;border-radius:50%;border:2px solid var(--border);background:radial-gradient(circle,rgba(4,20,40,0.95),rgba(2,13,26,0.98));position:relative;display:flex;align-items:center;justify-content:center;box-shadow:0 0 16px rgba(0,212,255,0.18)}
+.cc{position:absolute;font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700}
+#ccn{top:3px;left:50%;transform:translateX(-50%);color:var(--red)}
+#ccs{bottom:3px;left:50%;transform:translateX(-50%);color:rgba(0,212,255,0.5)}
+#ccw{left:3px;top:50%;transform:translateY(-50%);color:rgba(0,212,255,0.5)}
+#cce{right:3px;top:50%;transform:translateY(-50%);color:rgba(0,212,255,0.5)}
+#ca{position:absolute;width:100%;height:100%;top:0;left:0;transition:transform 0.4s ease-out}
+#chdg{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--cyan);text-shadow:0 0 8px var(--cyan)}
+#cdir{font-size:8px;color:rgba(0,212,255,0.5)}
+#bp{background:#020d1a;border-top:1px solid var(--border);padding:7px 10px 12px;flex-shrink:0;z-index:1000}
+#tabs{display:flex;gap:4px;margin-bottom:7px}
+.tab{flex:1;padding:7px 2px;border:1px solid var(--border);background:rgba(0,212,255,0.04);color:rgba(0,212,255,0.5);font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:1px;cursor:pointer;border-radius:3px;text-align:center;transition:all 0.2s}
+.tab.on{background:rgba(0,212,255,0.12);color:var(--cyan);border-color:var(--cyan);box-shadow:0 0 8px rgba(0,212,255,0.2)}
+.pnl{display:none}.pnl.on{display:block}
+.ar{display:flex;gap:5px;margin-bottom:5px}
+.btn{flex:1;padding:10px 4px;border:1px solid var(--border);background:rgba(0,212,255,0.05);color:var(--cyan);font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:1px;cursor:pointer;border-radius:3px;transition:all 0.2s;text-align:center}
+.btn:active{transform:scale(0.95)}
+.btn.on{filter:brightness(1.5);box-shadow:0 0 10px currentColor}
+.bg{border-color:var(--green);color:var(--green);background:rgba(0,255,157,0.06)}
+.ba{border-color:var(--amber);color:var(--amber);background:rgba(255,170,0,0.06)}
+.br{border-color:var(--red);color:var(--red);background:rgba(255,68,85,0.06)}
+.bp2{border-color:var(--purple);color:var(--purple);background:rgba(167,139,250,0.06)}
+.lst{max-height:82px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--cyan) transparent}
+.li{display:flex;align-items:center;padding:4px 7px;border:1px solid rgba(0,212,255,0.1);border-radius:3px;margin-bottom:3px;background:rgba(0,212,255,0.03);gap:6px}
+.ld{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.ln{flex:1;font-size:10px;border:none;background:transparent;font-family:'Share Tech Mono',monospace;outline:none;min-width:0}
+.ln:focus{border-bottom:1px solid currentColor}
+.lc{font-size:7px;color:rgba(0,212,255,0.4);flex-shrink:0}
+.lx{background:none;border:none;cursor:pointer;font-size:11px;padding:0 2px;opacity:0.5}
+.lx:hover{opacity:1}
+.stl{font-size:7px;letter-spacing:2px;color:rgba(0,212,255,0.3);margin-bottom:4px}
+#rd{width:6px;height:6px;border-radius:50%;background:var(--red);display:none;vertical-align:middle}
+#rd.on{display:inline-block;animation:bl 1s infinite}
+@keyframes bl{0%,100%{opacity:1}50%{opacity:0.1}}
+.tbadge{font-size:7px;padding:1px 4px;border-radius:2px;flex-shrink:0}
+.tbadge.route{background:rgba(0,212,255,0.15);color:var(--cyan);border:1px solid rgba(0,212,255,0.3)}
+.tbadge.reroute{background:rgba(255,170,0,0.15);color:var(--amber);border:1px solid rgba(255,170,0,0.3)}
+/* Modals */
+.molay{position:fixed;inset:0;background:rgba(2,13,26,0.92);z-index:2000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.molay.on{display:flex}
+.mdbox{background:#041428;border:1px solid var(--border);border-radius:8px;padding:18px;width:84%;max-width:340px}
+.mdbox h2{font-family:'Orbitron',sans-serif;font-size:12px;letter-spacing:2px;margin-bottom:12px}
+.mdbox input,.mdbox textarea{width:100%;background:rgba(0,212,255,0.05);border:1px solid var(--border);border-radius:3px;padding:8px 10px;color:var(--cyan);font-family:'Share Tech Mono',monospace;font-size:12px;outline:none;margin-bottom:10px;resize:none}
+.mdbox input:focus,.mdbox textarea:focus{border-color:var(--green)}
+.minfo{font-size:9px;color:rgba(0,212,255,0.5);margin-bottom:10px;line-height:1.8}
+.mbtns{display:flex;gap:8px}
+.mbtns .btn{padding:8px}
+.bcon{border-color:var(--green);color:var(--green);background:rgba(0,255,157,0.08)}
+.bcan{border-color:rgba(255,68,85,0.4);color:var(--red);background:rgba(255,68,85,0.04)}
+.wpin{width:11px;height:11px;background:var(--green);border-radius:50%;border:2px solid rgba(0,255,157,0.3);box-shadow:0 0 7px var(--green)}
+.wpin.m{background:var(--purple);border-color:rgba(167,139,250,0.3);box-shadow:0 0 7px var(--purple)}
+.empty{font-size:9px;color:rgba(0,212,255,0.22);text-align:center;padding:8px}
+/* Cache modal */
+#cachemo{position:fixed;inset:0;background:rgba(2,13,26,0.95);z-index:3000;display:none;align-items:center;justify-content:center}
+#cachemo.on{display:flex}
+#cachebox{background:#041428;border:1px solid var(--border);border-radius:10px;padding:20px;width:88%;max-width:360px}
+#cachebox h2{font-family:'Orbitron',sans-serif;font-size:13px;color:var(--cyan);letter-spacing:2px;margin-bottom:14px}
+.copt{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.coptbtn{padding:12px;border:1px solid var(--border);background:rgba(0,212,255,0.05);color:var(--cyan);border-radius:5px;cursor:pointer;font-family:'Share Tech Mono',monospace;font-size:11px;text-align:left;transition:all 0.2s}
+.coptbtn:hover,.coptbtn.sel{border-color:var(--green);background:rgba(0,255,157,0.08);color:var(--green)}
+.coptbtn .ctitle{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;margin-bottom:3px}
+.coptbtn .cdesc{font-size:9px;color:rgba(0,212,255,0.5)}
+.coptbtn.sel .cdesc{color:rgba(0,255,157,0.6)}
+#cprog{display:none;margin-bottom:14px}
+#cprogbar{width:100%;height:8px;background:rgba(0,212,255,0.1);border-radius:4px;overflow:hidden;margin-bottom:6px}
+#cprogfill{height:100%;width:0%;background:linear-gradient(90deg,var(--cyan),var(--green));border-radius:4px;transition:width 0.3s}
+#cprogtext{font-size:10px;color:var(--cyan);text-align:center}
+#cacheinfo{font-size:9px;color:rgba(0,212,255,0.45);margin-bottom:14px;line-height:1.7}
+
+/* GPS Detail Panel */
+#gpspanel{position:absolute;bottom:10px;left:8px;z-index:999;background:rgba(2,13,26,0.93);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:9px;line-height:1.0;display:none;min-width:160px}
+#gpspanel.on{display:block}
+.gpsrow{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(0,212,255,0.07)}
+.gpsrow:last-child{border-bottom:none}
+.gpslbl{color:rgba(0,212,255,0.5);font-size:8px;letter-spacing:1px}
+.gpsval{color:var(--green);font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700}
+.gpsval.warn{color:var(--amber)}
+.gpsval.bad{color:var(--red)}
+#gpsqbar{height:4px;border-radius:2px;margin-top:6px;margin-bottom:2px;transition:all 0.5s}
+#gpsqlbl{font-size:8px;text-align:center;letter-spacing:1px;margin-bottom:2px}
+#gpstoggle{position:absolute;top:90px;left:8px;z-index:998;background:rgba(2,13,26,0.88);border:1px solid var(--border);border-radius:4px;padding:3px 7px;font-size:9px;color:rgba(0,212,255,0.6);cursor:pointer;margin-top:36px}
+</style>
+</head>
+<body>
+
+<div id="hdr">
+  <div id="ttl">⚓ MARINE TRACKER</div>
+  <div id="sb">
+    <div class="si"><span class="sl">LAT</span><span class="sv" id="dlat">---</span></div>
+    <div class="si"><span class="sl">LNG</span><span class="sv" id="dlng">---</span></div>
+    <div class="si"><span class="sl">HDG</span><span class="sv" id="dhdg">---°</span></div>
+    <div class="si"><span class="sl">SPD</span><span class="sv" id="dspd">--</span></div>
+    <div class="si"><span class="sl">REC</span><span class="sv"><span id="rd"></span></span></div>
+  </div>
+</div>
+
+<div id="map">
+  <div id="gs"><span id="gd"></span><span id="gm">起動中...</span><br><span id="ga"></span></div>
+
+  <!-- GPS Detail Panel -->
+  <button id="gpstoggle" onclick="toggleGPSPanel()">📡 GPS詳細</button>
+  <div id="gpspanel">
+    <div id="gpsqlbl">🟢 GPS優秀</div>
+    <div id="gpsqbar" style="background:var(--green)"></div>
+    <div class="gpsrow"><span class="gpslbl">精度半径</span><span class="gpsval" id="gv-acc">---</span></div>
+    <div class="gpsrow"><span class="gpslbl">高度</span><span class="gpsval" id="gv-alt">---</span></div>
+    <div class="gpsrow"><span class="gpslbl">高度精度</span><span class="gpsval" id="gv-altacc">---</span></div>
+    <div class="gpsrow"><span class="gpslbl">速度精度</span><span class="gpsval" id="gv-spdacc">---</span></div>
+    <div class="gpsrow"><span class="gpslbl">方位精度</span><span class="gpsval" id="gv-hdgacc">---</span></div>
+    <div class="gpsrow"><span class="gpslbl">タイムスタンプ</span><span class="gpsval" id="gv-time">---</span></div>
+    <div class="gpsrow" style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(0,212,255,0.15)">
+      <span class="gpslbl">GPS</span><span class="gpsval" id="gv-gps">---</span>
+    </div>
+    <div class="gpsrow"><span class="gpslbl">GLONASS</span><span class="gpsval" id="gv-glo">---</span></div>
+    <div class="gpsrow"><span class="gpslbl">Galileo</span><span class="gpsval" id="gv-gal">---</span></div>
+    <div class="gpsrow"><span class="gpslbl">BeiDou</span><span class="gpsval" id="gv-bei">---</span></div>
+    <div class="gpsrow"><span class="gpslbl">みちびき</span><span class="gpsval" id="gv-qzss">---</span></div>
+  </div>
+  <div id="cw">
+    <div id="cr">
+      <span class="cc" id="ccn">N</span><span class="cc" id="ccs">S</span>
+      <span class="cc" id="ccw">W</span><span class="cc" id="cce">E</span>
+      <svg id="ca" viewBox="0 0 68 68">
+        <polygon points="34,5 39,34 34,30 29,34" fill="#ff4455" opacity="0.95"/>
+        <polygon points="34,63 39,34 34,38 29,34" fill="rgba(0,212,255,0.5)"/>
+        <circle cx="34" cy="34" r="3" fill="#00d4ff"/>
+      </svg>
+    </div>
+    <div id="chdg">---°</div>
+    <div id="cdir">---</div>
+  </div>
+</div>
+
+<div id="bp">
+  <div id="tabs">
+    <button class="tab on" onclick="showTab('map')">🗺 MAP</button>
+    <button class="tab" onclick="showTab('track')">〰 トラック</button>
+    <button class="tab" onclick="showTab('point')">📍 ポイント</button>
+    <button class="tab" onclick="showTab('offline')">📥 オフライン</button>
+  </div>
+
+  <!-- MAP tab -->
+  <div id="tab-map" class="pnl on">
+    <div class="ar">
+      <button class="btn bg" onclick="startRoute()">▶ ルート</button>
+      <button class="btn ba" onclick="startReroute()">↺ リルート</button>
+      <button class="btn br" id="bstop" onclick="stopTrack()" style="display:none">■ 停止</button>
+      <button class="btn" onclick="toggleHdg()" id="bhdg">🧭 HDG</button>
+      <button class="btn bp2" onclick="toggleMode()" id="bmod">⛵ 海</button>
+    </div>
+    <div class="ar">
+      <button class="btn bg" onclick="openWpModal()">📍 ポイント登録</button>
+      <button class="btn" onclick="locate()">🎯 現在地</button>
+    </div>
+  </div>
+
+  <!-- TRACK tab -->
+  <div id="tab-track" class="pnl">
+    <div class="stl">◈ 保存済みトラック (<span id="tcnt">0</span>)</div>
+    <div class="lst" id="tlst"><div class="empty">トラックなし</div></div>
+  </div>
+
+  <!-- POINT tab -->
+  <div id="tab-point" class="pnl">
+    <div class="stl">◈ 保存済みポイント (<span id="pcnt">0</span>)</div>
+    <div class="lst" id="plst"><div class="empty">ポイントなし</div></div>
+  </div>
+
+  <!-- OFFLINE tab -->
+  <div id="tab-offline" class="pnl">
+    <div class="stl">◈ オフラインマップ</div>
+    <div class="ar">
+      <button class="btn bg" onclick="openCacheModal()">📥 エリアキャッシュ</button>
+      <button class="btn br" onclick="clearCache()">🗑 キャッシュ削除</button>
+    </div>
+    <div style="font-size:9px;color:rgba(0,212,255,0.4);line-height:1.8;padding:2px 4px">
+      キャッシュ済み: <span id="cachecount">---</span> タイル<br>
+      ① 地図を見たいエリアに移動<br>
+      ② 「エリアキャッシュ」→詳細度を選択<br>
+      ③ 圏外でもそのエリアを表示可能
+    </div>
+  </div>
+</div>
+
+<!-- Waypoint Modal -->
+<div id="mo" class="molay"><div class="mdbox">
+  <h2 id="mttl" style="color:var(--green)">📍 ポイント登録</h2>
+  <div class="minfo" id="minfo">---</div>
+  <input type="text" id="mi" placeholder="名前..." maxlength="30">
+  <textarea id="mmemo" placeholder="メモ（任意）" rows="2"></textarea>
+  <div class="mbtns">
+    <button class="btn bcan" onclick="closeMo()">キャンセル</button>
+    <button class="btn bcon" onclick="confirmWp()">登録</button>
+  </div>
+</div></div>
+
+<!-- Edit Modal -->
+<div id="emo" class="molay"><div class="mdbox">
+  <h2 id="ettl" style="color:var(--amber)">✏ 編集</h2>
+  <input type="text" id="ei" placeholder="名前..." maxlength="40">
+  <textarea id="ememo" placeholder="メモ" rows="2"></textarea>
+  <div class="mbtns">
+    <button class="btn bcan" onclick="closeEmo()">キャンセル</button>
+    <button class="btn bcon" onclick="confirmEdit()">保存</button>
+  </div>
+</div></div>
+
+<!-- Stop Track Modal -->
+<div id="smo" class="molay"><div class="mdbox">
+  <h2 id="smttl" style="color:var(--cyan)">トラック保存</h2>
+  <div class="minfo" id="sminfo"></div>
+  <input type="text" id="smi" placeholder="トラック名..." maxlength="40">
+  <textarea id="smmemo" placeholder="メモ（任意）" rows="2"></textarea>
+  <div class="mbtns">
+    <button class="btn bcan" onclick="discardTrack()">破棄</button>
+    <button class="btn ba" onclick="saveTrack(false)">保存</button>
+    <button class="btn bcon" onclick="saveTrack(true)">保存＋編集</button>
+  </div>
+</div></div>
+
+<!-- Cache Modal -->
+<div id="cachemo"><div id="cachebox">
+  <h2>📥 エリアキャッシュ</h2>
+  <div id="cacheinfo">現在の地図表示エリアをオフライン保存します。<br>詳細度を選択してください：</div>
+  <div class="copt" id="copts">
+    <button class="coptbtn" onclick="selCache(0,this)">
+      <div class="ctitle">🌏 広域 (〜ズーム14)</div>
+      <div class="cdesc">エリア全体の概要 / 約5MB / 高速DL</div>
+    </button>
+    <button class="coptbtn" onclick="selCache(1,this)">
+      <div class="ctitle">⚓ 標準 (〜ズーム16)</div>
+      <div class="cdesc">港湾・航路レベル / 約20MB / 推奨</div>
+    </button>
+    <button class="coptbtn" onclick="selCache(2,this)">
+      <div class="ctitle">🔍 詳細 (〜ズーム18)</div>
+      <div class="cdesc">最詳細・建物レベル / 約80MB / 時間かかる</div>
+    </button>
+  </div>
+  <div id="cprog">
+    <div id="cprogbar"><div id="cprogfill"></div></div>
+    <div id="cprogtext">準備中...</div>
+  </div>
+  <div class="mbtns">
+    <button class="btn bcan" id="ccancelbtn" onclick="closeCacheModal()">キャンセル</button>
+    <button class="btn bcon" id="cstartbtn" onclick="startCaching()">DL開始</button>
+  </div>
+</div></div>
+
+<script>
+// ===== Service Worker =====
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./sw.js').then(()=>{
+    updateCacheCount();
+  }).catch(e=>console.warn('SW error',e));
+}
+
+// ===== IndexedDB =====
+let db;
+function initDB(){
+  return new Promise((res,rej)=>{
+    const req=indexedDB.open('MarineTracker',2);
+    req.onupgradeneeded=e=>{
+      const d=e.target.result;
+      if(!d.objectStoreNames.contains('tracks')) d.createObjectStore('tracks',{keyPath:'id'});
+      if(!d.objectStoreNames.contains('waypoints')) d.createObjectStore('waypoints',{keyPath:'id'});
+    };
+    req.onsuccess=e=>{db=e.target.result;res()};
+    req.onerror=()=>rej(req.error);
+  });
+}
+function dbPut(store,obj){return new Promise((res,rej)=>{const tx=db.transaction(store,'readwrite');tx.objectStore(store).put(obj).onsuccess=()=>res();tx.onerror=()=>rej();})}
+function dbGetAll(store){return new Promise((res,rej)=>{const req=db.transaction(store,'readonly').objectStore(store).getAll();req.onsuccess=()=>res(req.result);req.onerror=()=>rej();})}
+function dbDelete(store,id){return new Promise((res,rej)=>{const tx=db.transaction(store,'readwrite');tx.objectStore(store).delete(id).onsuccess=()=>res();tx.onerror=()=>rej();})}
+
+// ===== State =====
+let map,posMarker,layers={};
+let pos=null,hdg=0,hdgUp=false,mode='sea';
+let wid=null;
+let recording=false,recType=null;
+let recCoords=[],recLine=null,recStart=null;
+let tracks=[],waypoints=[];
+let trackLines={},wpMarkers={};
+let editTarget=null,editStore=null;
+let selectedCacheLevel=1;
+let caching=false;
+
+const DIRS=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+const toDir=h=>DIRS[Math.round(h/22.5)%16];
+
+// ===== Map =====
+function initMap(){
+  map=L.map('map',{center:[35.45,139.65],zoom:13,zoomControl:true,attributionControl:false});
+  layers.osm=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,opacity:0.75});
+  layers.sea=L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',{maxZoom:18});
+  layers.topo=L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17});
+  layers.osm.addTo(map);layers.sea.addTo(map);
+  L.control.attribution({position:'bottomleft',prefix:''}).addAttribution('© OpenStreetMap © OpenSeaMap © OpenTopoMap').addTo(map);
+}
+
+// ===== GPS =====
+function initGPS(){
+  if(!navigator.geolocation){setGS('err','GPS非対応','');return;}
+  setGS('wait','GPS取得中...','');doWatch();
+}
+function doWatch(){
+  if(wid!==null) navigator.geolocation.clearWatch(wid);
+  wid=navigator.geolocation.watchPosition(onPos,onErr,{enableHighAccuracy:true,maximumAge:0,timeout:60000});
+}
+function onPos(p){
+  const{latitude:lat,longitude:lng,speed,accuracy,heading:gh,altitude,altitudeAccuracy,speedAccuracy,headingAccuracy}=p.coords;
+  setGS('ok','現在地取得中',Math.round(accuracy)+'m');
+  if(gh!==null&&!isNaN(gh)) updateHdg(gh);
+  const spd=speed?(mode==='sea'?speed*1.94384:speed*3.6):0;
+  updatePos(lat,lng,spd);
+  updateGPSPanel(p);
+}
+
+function updateGPSPanel(p){
+  const c=p.coords;
+  const acc=Math.round(c.accuracy);
+  // Quality assessment
+  let q,qcolor,qbg;
+  if(acc<5){q='🟢 優秀 (みちびき級)';qcolor='var(--green)';qbg='linear-gradient(90deg,#00ff9d,#00d4ff)';}
+  else if(acc<15){q='🟢 良好';qcolor='var(--green)';qbg='linear-gradient(90deg,#00ff9d,#00d4ff)';}
+  else if(acc<30){q='🟡 普通';qcolor='var(--amber)';qbg='linear-gradient(90deg,#ffaa00,#ff8800)';}
+  else if(acc<100){q='🟠 やや不良';qcolor='var(--amber)';qbg='linear-gradient(90deg,#ff8800,#ff4455)';}
+  else{q='🔴 不良';qcolor='var(--red)';qbg='var(--red)';}
+  const pct=Math.max(5,Math.min(100,100-Math.log10(acc)*40));
+  document.getElementById('gpsqlbl').textContent=q;
+  document.getElementById('gpsqlbl').style.color=qcolor;
+  document.getElementById('gpsqbar').style.background=qbg;
+  document.getElementById('gpsqbar').style.width=pct+'%';
+
+  setGV('gv-acc', acc+'m', acc<15?'':'warn');
+  setGV('gv-alt', c.altitude!==null?Math.round(c.altitude)+'m':'非対応','');
+  setGV('gv-altacc', c.altitudeAccuracy!==null?Math.round(c.altitudeAccuracy)+'m':'---','');
+  setGV('gv-spdacc', c.speedAccuracy!==null?c.speedAccuracy.toFixed(1)+'m/s':'---','');
+  setGV('gv-hdgacc', c.headingAccuracy!==null?Math.round(c.headingAccuracy)+'°':'---','');
+  const t=new Date(p.timestamp);
+  setGV('gv-time',t.toTimeString().slice(0,8),'');
+
+  // Satellite count estimation from accuracy
+  estimateSatellites(acc);
+}
+
+function setGV(id,val,cls){
+  const el=document.getElementById(id);
+  if(el){el.textContent=val;el.className='gpsval'+(cls?' '+cls:'');}
+}
+
+function estimateSatellites(acc){
+  // Estimate based on accuracy (browser doesn't expose per-constellation counts)
+  // These are educated estimates based on typical GNSS behavior
+  let gps,glo,gal,bei,qzss,note;
+  if(acc<3){gps='8+';glo='5+';gal='5+';bei='3+';qzss='3+';}
+  else if(acc<8){gps='6-8';glo='3-5';gal='3-5';bei='2-3';qzss='2-3';}
+  else if(acc<20){gps='4-6';glo='2-4';gal='2-3';bei='1-2';qzss='1-2';}
+  else if(acc<50){gps='3-4';glo='1-2';gal='1-2';bei='0-1';qzss='0-1';}
+  else{gps='2-3';glo='0-1';gal='0-1';bei='0';qzss='0';}
+  document.getElementById('gv-gps').textContent=gps+'基';
+  document.getElementById('gv-glo').textContent=glo+'基';
+  document.getElementById('gv-gal').textContent=gal+'基';
+  document.getElementById('gv-bei').textContent=bei+'基';
+  document.getElementById('gv-qzss').textContent=qzss+'基';
+  // Color QZSS green when good
+  const qel=document.getElementById('gv-qzss');
+  if(qel) qel.className='gpsval'+(acc<20?'':' warn');
+}
+
+function toggleGPSPanel(){
+  document.getElementById('gpspanel').classList.toggle('on');
+}
+function onErr(e){
+  const m={1:'位置情報を許可してください',2:'GPS信号なし',3:'GPS再試行中...'};
+  setGS(e.code===1?'err':'wait',m[e.code]||'GPSエラー','');
+  if(e.code===3) setTimeout(doWatch,3000);
+}
+function setGS(s,msg,acc){
+  document.getElementById('gd').className=s==='ok'?'ok':s==='err'?'err':'';
+  document.getElementById('gm').textContent=msg;
+  document.getElementById('ga').textContent=acc?'精度: '+acc:'';
+}
+function updatePos(lat,lng,spd){
+  pos={lat,lng};
+  document.getElementById('dlat').textContent=lat.toFixed(5);
+  document.getElementById('dlng').textContent=lng.toFixed(5);
+  document.getElementById('dspd').textContent=spd.toFixed(1)+(mode==='sea'?'kt':'km/h');
+  updateMarker(lat,lng,hdg);
+  if(recording){
+    recCoords.push([lat,lng]);
+    if(recLine) recLine.setLatLngs(recCoords);
+    if(recCoords.length%30===0) autoSaveTrack();
+  }
+  if(hdgUp) map.setView([lat,lng]);
+}
+
+// ===== Marker =====
+function updateMarker(lat,lng,h){
+  const c=mode==='sea'?'#00d4ff':'#a78bfa';
+  const html=`<svg width="44" height="44" viewBox="0 0 44 44" style="transform:rotate(${Math.round(h)}deg);filter:drop-shadow(0 0 7px ${c});display:block"><polygon points="22,2 29,42 22,34 15,42" fill="${c}" opacity="0.95"/><circle cx="22" cy="22" r="4" fill="white" opacity="0.9"/></svg>`;
+  const icon=L.divIcon({className:'',html,iconSize:[44,44],iconAnchor:[22,22]});
+  if(posMarker){posMarker.setLatLng([lat,lng]);posMarker.setIcon(icon);}
+  else{posMarker=L.marker([lat,lng],{icon,zIndexOffset:1000}).addTo(map);map.setView([lat,lng],15);}
+}
+
+// ===== Compass =====
+// Heading smoothing
+let hdgBuffer=[];
+const HDG_SMOOTH=8; // average over 8 samples
+const HDG_THRESHOLD=1.5; // ignore changes smaller than 1.5deg (noise filter)
+let lastDisplayHdg=null;
+
+function smoothHdg(raw){
+  hdgBuffer.push(raw);
+  if(hdgBuffer.length>HDG_SMOOTH) hdgBuffer.shift();
+  // Circular mean to handle 359->1 wraparound
+  let sinSum=0,cosSum=0;
+  hdgBuffer.forEach(a=>{sinSum+=Math.sin(a*Math.PI/180);cosSum+=Math.cos(a*Math.PI/180);});
+  let avg=Math.atan2(sinSum/hdgBuffer.length,cosSum/hdgBuffer.length)*180/Math.PI;
+  if(avg<0) avg+=360;
+  return avg;
+}
+
+function initCompass(){
+  const h=e=>{
+    let v=null;
+    if(e.webkitCompassHeading!=null) v=e.webkitCompassHeading;
+    else if(e.alpha!=null) v=(360-e.alpha)%360;
+    if(v!=null&&!isNaN(v)){
+      const smoothed=smoothHdg(v);
+      // Only update display if change exceeds threshold
+      if(lastDisplayHdg===null||Math.abs(smoothed-lastDisplayHdg)>HDG_THRESHOLD){
+        lastDisplayHdg=smoothed;
+        updateHdg(smoothed);
+      }
+    }
+  };
+  if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
+    DeviceOrientationEvent.requestPermission().then(s=>{if(s==='granted'){window.addEventListener('deviceorientationabsolute',h,true);window.addEventListener('deviceorientation',h,true);}}).catch(()=>{});
+  } else {
+    window.addEventListener('deviceorientationabsolute',h,true);
+    window.addEventListener('deviceorientation',h,true);
+  }
+}
+function updateHdg(h){
+  hdg=h;
+  document.getElementById('dhdg').textContent=Math.round(h)+'°';
+  document.getElementById('chdg').textContent=Math.round(h)+'°';
+  document.getElementById('cdir').textContent=toDir(h);
+  document.getElementById('ca').style.transform=`rotate(${-h}deg)`;
+  if(pos) updateMarker(pos.lat,pos.lng,h);
+}
+
+// ===== Track Recording =====
+function startRoute(){if(recording)stopTrack();beginRec('route');}
+function startReroute(){if(recording)stopTrack();beginRec('reroute');}
+function beginRec(type){
+  recType=type;recCoords=[];recording=true;recStart=new Date();
+  const isR=type==='route';
+  recLine=L.polyline([],{color:isR?'#00d4ff':'#ffaa00',weight:isR?3:2,opacity:0.85,dashArray:isR?null:'4,6'}).addTo(map);
+  document.getElementById('bstop').style.display='';
+  document.getElementById('bstop').textContent=`■ ${isR?'ルート':'リルート'}停止`;
+  document.getElementById('rd').classList.add('on');
+  if(pos) recCoords.push([pos.lat,pos.lng]);
+}
+function stopTrack(){
+  if(!recording)return;
+  recording=false;
+  document.getElementById('bstop').style.display='none';
+  document.getElementById('rd').classList.remove('on');
+  if(recCoords.length<2){if(recLine)map.removeLayer(recLine);recLine=null;return;}
+  const dur=Math.round((Date.now()-recStart)/1000);
+  const mins=Math.floor(dur/60),secs=dur%60;
+  document.getElementById('smttl').textContent=(recType==='route'?'〰 ルート':'↺ リルート')+'保存';
+  document.getElementById('smttl').style.color=recType==='route'?'var(--cyan)':'var(--amber)';
+  document.getElementById('sminfo').textContent=`${recCoords.length}点 / ${mins}分${secs}秒`;
+  document.getElementById('smi').value=`${recType==='route'?'ルート':'リルート'} ${new Date().toLocaleDateString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}`;
+  document.getElementById('smmemo').value='';
+  document.getElementById('smo').classList.add('on');
+}
+async function saveTrack(edit){
+  const name=document.getElementById('smi').value.trim()||'無題トラック';
+  const memo=document.getElementById('smmemo').value.trim();
+  const t={id:Date.now(),name,memo,type:recType,coords:recCoords,savedAt:new Date().toISOString()};
+  await dbPut('tracks',t);tracks.push(t);drawTrackLine(t);
+  document.getElementById('smo').classList.remove('on');
+  if(recLine){map.removeLayer(recLine);recLine=null;}
+  renderTrackList();
+  if(edit) openEditModal('tracks',t.id);
+}
+function discardTrack(){
+  document.getElementById('smo').classList.remove('on');
+  if(recLine){map.removeLayer(recLine);recLine=null;}
+}
+async function autoSaveTrack(){
+  const t={id:'autosave',name:'自動保存',memo:'',type:recType,coords:[...recCoords],savedAt:new Date().toISOString()};
+  await dbPut('tracks',t);
+}
+function drawTrackLine(t){
+  if(trackLines[t.id]) map.removeLayer(trackLines[t.id]);
+  const isR=t.type==='route';
+  const line=L.polyline(t.coords,{color:isR?'#00d4ff':'#ffaa00',weight:isR?3:2,opacity:0.8,dashArray:isR?null:'4,6'}).addTo(map);
+  line.bindTooltip(t.name,{sticky:true});
+  trackLines[t.id]=line;
+}
+
+// ===== Waypoints =====
+let pendingPos=null;
+function openWpModal(){
+  if(!pos){alert('GPS取得中です');return;}
+  pendingPos={...pos};
+  document.getElementById('mttl').textContent=mode==='mountain'?'🏔 ポイント登録':'📍 ポイント登録';
+  document.getElementById('minfo').innerHTML=`緯度: <b>${pendingPos.lat.toFixed(6)}</b><br>経度: <b>${pendingPos.lng.toFixed(6)}</b>`;
+  document.getElementById('mi').value='';document.getElementById('mmemo').value='';
+  document.getElementById('mo').classList.add('on');
+  setTimeout(()=>document.getElementById('mi').focus(),100);
+}
+function closeMo(){document.getElementById('mo').classList.remove('on');pendingPos=null;}
+async function confirmWp(){
+  const name=document.getElementById('mi').value.trim();
+  if(!name){document.getElementById('mi').focus();return;}
+  const memo=document.getElementById('mmemo').value.trim();
+  const wp={id:Date.now(),name,memo,lat:pendingPos.lat,lng:pendingPos.lng,mode,savedAt:new Date().toISOString()};
+  await dbPut('waypoints',wp);waypoints.push(wp);drawWpMarker(wp);renderPointList();closeMo();
+}
+function drawWpMarker(wp){
+  const isMtn=wp.mode==='mountain';
+  const icon=L.divIcon({className:'',html:`<div class="wpin${isMtn?' m':''}"></div>`,iconSize:[11,11],iconAnchor:[5,5]});
+  const mk=L.marker([wp.lat,wp.lng],{icon})
+    .bindPopup(`<b style="color:${isMtn?'#a78bfa':'#00ff9d'};font-family:monospace">${wp.name}</b>${wp.memo?`<br><small style="color:#aaa">${wp.memo}</small>`:''}<br><small style="color:#666">${wp.lat.toFixed(5)},${wp.lng.toFixed(5)}</small>`)
+    .addTo(map);
+  wpMarkers[wp.id]=mk;
+}
+
+// ===== Edit Modal =====
+function openEditModal(store,id){
+  const items=store==='tracks'?tracks:waypoints;
+  const item=items.find(x=>x.id==id);if(!item)return;
+  editTarget=item;editStore=store;
+  document.getElementById('ettl').textContent=store==='tracks'?'✏ トラック編集':'✏ ポイント編集';
+  document.getElementById('ei').value=item.name;
+  document.getElementById('ememo').value=item.memo||'';
+  document.getElementById('emo').classList.add('on');
+  setTimeout(()=>document.getElementById('ei').focus(),100);
+}
+function closeEmo(){document.getElementById('emo').classList.remove('on');editTarget=null;editStore=null;}
+async function confirmEdit(){
+  const name=document.getElementById('ei').value.trim();if(!name)return;
+  editTarget.name=name;editTarget.memo=document.getElementById('ememo').value.trim();
+  await dbPut(editStore,editTarget);
+  if(editStore==='tracks'){if(trackLines[editTarget.id])trackLines[editTarget.id].setTooltipContent(name);renderTrackList();}
+  else{
+    if(wpMarkers[editTarget.id])wpMarkers[editTarget.id].getPopup().setContent(`<b style="color:${editTarget.mode==='mountain'?'#a78bfa':'#00ff9d'};font-family:monospace">${name}</b>${editTarget.memo?`<br><small style="color:#aaa">${editTarget.memo}</small>`:''}<br><small style="color:#666">${editTarget.lat.toFixed(5)},${editTarget.lng.toFixed(5)}</small>`);
+    renderPointList();
+  }
+  closeEmo();
+}
+
+// ===== Render =====
+function renderTrackList(){
+  const el=document.getElementById('tlst');
+  const vis=tracks.filter(t=>t.id!=='autosave');
+  document.getElementById('tcnt').textContent=vis.length;
+  if(!vis.length){el.innerHTML='<div class="empty">トラックなし</div>';return;}
+  el.innerHTML=vis.map(t=>`
+    <div class="li">
+      <div class="ld" style="background:${t.type==='route'?'#00d4ff':'transparent'};border:${t.type==='reroute'?'2px dotted #ffaa00':'none'};box-shadow:0 0 5px ${t.type==='route'?'#00d4ff':'#ffaa00'}"></div>
+      <span class="tbadge ${t.type}">${t.type==='route'?'ルート':'リルート'}</span>
+      <input class="ln" style="color:${t.type==='route'?'var(--cyan)':'var(--amber)'}" value="${t.name}" onchange="renTrack('${t.id}',this.value)">
+      <button class="lx" style="color:var(--amber)" onclick="openEditModal('tracks','${t.id}')">✏</button>
+      <button class="lx" onclick="flyTrack('${t.id}')">👁</button>
+      <button class="lx" style="color:var(--red)" onclick="delTrack('${t.id}')">✕</button>
+    </div>`).join('');
+}
+function renderPointList(){
+  const el=document.getElementById('plst');
+  document.getElementById('pcnt').textContent=waypoints.length;
+  if(!waypoints.length){el.innerHTML='<div class="empty">ポイントなし</div>';return;}
+  el.innerHTML=waypoints.map(w=>`
+    <div class="li">
+      <div class="ld" style="background:${w.mode==='mountain'?'#a78bfa':'#00ff9d'};box-shadow:0 0 5px ${w.mode==='mountain'?'#a78bfa':'#00ff9d'}"></div>
+      <input class="ln" style="color:${w.mode==='mountain'?'var(--purple)':'var(--green)'}" value="${w.name}" onchange="renWp(${w.id},this.value)" onclick="flyWp(${w.id})">
+      <span class="lc">${w.lat.toFixed(3)},${w.lng.toFixed(3)}</span>
+      <button class="lx" style="color:var(--amber)" onclick="openEditModal('waypoints',${w.id})">✏</button>
+      <button class="lx" style="color:var(--red)" onclick="delWp(${w.id})">✕</button>
+    </div>`).join('');
+}
+
+// ===== Track Actions =====
+async function renTrack(id,name){const t=tracks.find(x=>x.id==id);if(!t)return;t.name=name;await dbPut('tracks',t);if(trackLines[id])trackLines[id].setTooltipContent(name);}
+function flyTrack(id){const t=tracks.find(x=>x.id==id);if(!t||!t.coords.length)return;map.fitBounds(L.polyline(t.coords).getBounds(),{padding:[20,20]});}
+async function delTrack(id){if(!confirm('削除しますか？'))return;await dbDelete('tracks',id);tracks=tracks.filter(x=>x.id!=id);if(trackLines[id]){map.removeLayer(trackLines[id]);delete trackLines[id];}renderTrackList();}
+async function renWp(id,name){const w=waypoints.find(x=>x.id===id);if(!w)return;w.name=name;await dbPut('waypoints',w);}
+function flyWp(id){const w=waypoints.find(x=>x.id===id);if(!w)return;map.flyTo([w.lat,w.lng],16,{duration:1});if(wpMarkers[id])wpMarkers[id].openPopup();}
+async function delWp(id){await dbDelete('waypoints',id);waypoints=waypoints.filter(x=>x.id!==id);if(wpMarkers[id]){map.removeLayer(wpMarkers[id]);delete wpMarkers[id];}renderPointList();}
+
+// ===== Controls =====
+function toggleHdg(){hdgUp=!hdgUp;const b=document.getElementById('bhdg');b.classList.toggle('on',hdgUp);b.textContent=hdgUp?'🧭 ON':'🧭 HDG';if(hdgUp){initCompass();if(pos)map.setView([pos.lat,pos.lng]);}}
+function toggleMode(){
+  mode=mode==='sea'?'mountain':'sea';const b=document.getElementById('bmod');
+  if(mode==='mountain'){map.removeLayer(layers.osm);map.removeLayer(layers.sea);layers.topo.addTo(map);b.textContent='🏔 山';document.getElementById('ttl').textContent='🏔 MOUNTAIN TRACKER';}
+  else{map.removeLayer(layers.topo);layers.osm.addTo(map);layers.sea.addTo(map);b.textContent='⛵ 海';document.getElementById('ttl').textContent='⚓ MARINE TRACKER';}
+}
+function locate(){if(!pos){alert('GPS取得中です');return;}map.flyTo([pos.lat,pos.lng],16,{duration:1});}
+function showTab(t){
+  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('on',['map','track','point','offline'][i]===t));
+  document.querySelectorAll('.pnl').forEach(p=>p.classList.remove('on'));
+  document.getElementById('tab-'+t).classList.add('on');
+  if(t==='offline') updateCacheCount();
+}
+
+// ===== Offline Cache =====
+function getTileUrls(bounds,minZ,maxZ){
+  const urls=[];
+  const layers2=[
+    z=>`https://a.tile.openstreetmap.org/${z}/{x}/{y}.png`,
+    z=>`https://tiles.openseamap.org/seamark/${z}/{x}/{y}.png`,
+  ];
+  for(let z=minZ;z<=maxZ;z++){
+    const nw=bounds.getNorthWest(),se=bounds.getSouthEast();
+    const x1=lng2tile(nw.lng,z),x2=lng2tile(se.lng,z);
+    const y1=lat2tile(nw.lat,z),y2=lat2tile(se.lat,z);
+    for(let x=x1;x<=x2;x++) for(let y=y1;y<=y2;y++) layers2.forEach(fn=>urls.push(fn(z).replace('{x}',x).replace('{y}',y)));
+  }
+  return urls;
+}
+function lng2tile(lng,z){return Math.floor((lng+180)/360*Math.pow(2,z));}
+function lat2tile(lat,z){return Math.floor((1-Math.log(Math.tan(lat*Math.PI/180)+1/Math.cos(lat*Math.PI/180))/Math.PI)/2*Math.pow(2,z));}
+
+function selCache(level,btn){
+  selectedCacheLevel=level;
+  document.querySelectorAll('.coptbtn').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+}
+
+function openCacheModal(){
+  document.getElementById('cachemo').classList.add('on');
+  document.getElementById('cprog').style.display='none';
+  document.getElementById('copts').style.display='flex';
+  document.getElementById('cstartbtn').style.display='';
+  document.getElementById('ccancelbtn').textContent='キャンセル';
+  caching=false;
+  // Auto select standard
+  document.querySelectorAll('.coptbtn').forEach((b,i)=>{b.classList.toggle('sel',i===1);});
+  selectedCacheLevel=1;
+  const b=map.getBounds();
+  const area=calcTileCount(b,10,[14,16,18][selectedCacheLevel]);
+  document.getElementById('cacheinfo').textContent=`現在の表示エリアをキャッシュします。\n詳細度を選択してください。`;
+}
+function closeCacheModal(){
+  if(caching) return;
+  document.getElementById('cachemo').classList.remove('on');
+}
+function calcTileCount(bounds,minZ,maxZ){
+  let count=0;
+  for(let z=minZ;z<=maxZ;z++){
+    const nw=bounds.getNorthWest(),se=bounds.getSouthEast();
+    const dx=lng2tile(se.lng,z)-lng2tile(nw.lng,z)+1;
+    const dy=lat2tile(se.lat,z)-lat2tile(nw.lat,z)+1;
+    count+=dx*dy*2;
+  }
+  return count;
+}
+
+async function startCaching(){
+  if(!('serviceWorker' in navigator)||!navigator.serviceWorker.controller){
+    alert('Service Workerが初期化中です。ページを再読み込みしてから試してください。');return;
+  }
+  caching=true;
+  const maxZooms=[14,16,18];
+  const maxZ=maxZooms[selectedCacheLevel];
+  const bounds=map.getBounds();
+  const urls=getTileUrls(bounds,10,maxZ);
+  document.getElementById('copts').style.display='none';
+  document.getElementById('cprog').style.display='block';
+  document.getElementById('cstartbtn').style.display='none';
+  document.getElementById('ccancelbtn').textContent='閉じる';
+  document.getElementById('cprogtext').textContent=`0 / ${urls.length} タイル取得中...`;
+
+  const ch=new MessageChannel();
+  ch.port1.onmessage=e=>{
+    const d=e.data;
+    if(d.type==='PROGRESS'){
+      const pct=Math.round(d.done/d.total*100);
+      document.getElementById('cprogfill').style.width=pct+'%';
+      document.getElementById('cprogtext').textContent=`${d.done} / ${d.total} (${pct}%) ${d.failed>0?'失敗:'+d.failed:''}`;
+    }
+    if(d.type==='DONE'){
+      document.getElementById('cprogtext').textContent=`✅ 完了! ${d.done}タイルをキャッシュしました`;
+      document.getElementById('cprogfill').style.width='100%';
+      caching=false;updateCacheCount();
+    }
+  };
+  navigator.serviceWorker.controller.postMessage({type:'CACHE_TILES',urls},[ ch.port2]);
+}
+
+function updateCacheCount(){
+  if(!('serviceWorker' in navigator)||!navigator.serviceWorker.controller) return;
+  const ch=new MessageChannel();
+  ch.port1.onmessage=e=>{if(e.data.type==='SIZE') document.getElementById('cachecount').textContent=e.data.count.toLocaleString();};
+  navigator.serviceWorker.controller.postMessage({type:'CACHE_SIZE'},[ch.port2]);
+}
+
+async function clearCache(){
+  if(!confirm('キャッシュを全削除しますか？'))return;
+  if(!('serviceWorker' in navigator)||!navigator.serviceWorker.controller) return;
+  const ch=new MessageChannel();
+  ch.port1.onmessage=e=>{if(e.data.type==='CLEARED'){document.getElementById('cachecount').textContent='0';alert('キャッシュを削除しました');}};
+  navigator.serviceWorker.controller.postMessage({type:'CLEAR_CACHE'},[ch.port2]);
+}
+
+// ===== Keyboard =====
+document.getElementById('mi').addEventListener('keydown',e=>{if(e.key==='Enter')confirmWp();if(e.key==='Escape')closeMo();});
+document.getElementById('ei').addEventListener('keydown',e=>{if(e.key==='Enter')confirmEdit();if(e.key==='Escape')closeEmo();});
+
+// ===== Boot =====
+async function boot(){
+  initMap();
+  await initDB();
+  const saved=await dbGetAll('tracks');
+  tracks=saved.filter(t=>t.id!=='autosave');
+  tracks.forEach(t=>drawTrackLine(t));renderTrackList();
+  waypoints=await dbGetAll('waypoints');
+  waypoints.forEach(w=>drawWpMarker(w));renderPointList();
+  initGPS();initCompass();
+}
+boot();
+</script>
+</body>
+</html>
